@@ -81,14 +81,42 @@ elif level == "进阶：全信息交叉搜索":
                         st.info(f"🧬 **词源（Etymology）：**\n{row['etymology_texts']}")
                     if 'categories' in row and row['categories']:
                         st.warning(f"🏷️ **分类标签：**\n{row['categories']}")
+import google.generativeai as genai
+
+# 从 Streamlit Secrets 中读取密钥
+if "GEMINI_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    model = genai.GenerativeModel('gemini-1.5-flash') # 使用最新的 flash 模型，速度快且免费额度高
+else:
+    st.warning("⚠️ 请在 Streamlit Secrets 中配置 GEMINI_API_KEY")
 
 # --- 模块 3：AI 语法练习 ---
 elif level == "挑战：AI 语法分析":
     st.header("🤖 Gemini AI 导师")
-    st.write("在这里你可以输入一句话，让 AI 帮你分析。")
-    user_input = st.text_area("输入你想分析的日语或对比句子：", "私は日本人です。")
+    st.write("输入日语句子，AI 会结合你的中、韩、西语背景进行深度分析。")
     
-    if st.button("开始分析"):
-        st.write("（请先在 Streamlit Secrets 中配置你的 Gemini API Key）")
-        st.write(f"分析请求：{user_input}")
-        # 这里预留给 Gemini API 接入
+    user_input = st.text_area("输入你想分析的日语或对比句子：", placeholder="例如：勉強すればするほど、難しくなります。")
+    
+    if st.button("开始 AI 深度分析"):
+        if user_input:
+            with st.spinner("AI 老师正在思考中..."):
+                try:
+                    # 这里的 Prompt 专门为你设计，利用你的多语言背景
+                    prompt = f"""
+                    你是一位精通日语、中文、韩语和西班牙语的语言学专家。
+                    用户目前的水平是：中文母语、韩语熟练、西班牙语B1、日语初学者。
+                    请分析以下日语句子：'{user_input}'
+                    
+                    要求：
+                    1. 给出中文翻译。
+                    2. 寻找该句子与韩语在语法上的相似之处（例如助词对应、语序）。
+                    3. 如果发音上有与西班牙语相似的部分，请指出。
+                    4. 解释重点词汇和语法点。
+                    """
+                    response = model.generate_content(prompt)
+                    st.markdown("### 📝 AI 分析结果")
+                    st.write(response.text)
+                except Exception as e:
+                    st.error(f"AI 调用出错: {e}")
+        else:
+            st.warning("请输入内容后再点击分析。")
