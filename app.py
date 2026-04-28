@@ -84,6 +84,15 @@ elif level == "进阶：全信息交叉搜索":
                     if 'categories' in row and row['categories']:
                         st.warning(f"🏷️ **分类标签：**\n{row['categories']}")
 
+# --- AI 配置 ---
+if "GEMINI_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    # 使用 'gemini-1.5-flash' 或 'gemini-1.5-pro'
+    # 加上 latest 可以确保调用到当前最稳定的版本
+    model = genai.GenerativeModel('gemini-1.5-flash') 
+else:
+    st.sidebar.warning("⚠️ 请在 Streamlit Secrets 中配置 GEMINI_API_KEY")
+
 # --- 模块 3：AI 语法练习 ---
 elif level == "挑战：AI 语法分析":
     st.header("🤖 Gemini AI 导师")
@@ -97,21 +106,26 @@ elif level == "挑战：AI 语法分析":
         elif user_input:
             with st.spinner("AI 老师正在思考中..."):
                 try:
+                    # 这里的 Prompt 专门为你设计，利用你的多语言背景
                     prompt = f"""
                     你是一位精通日语、中文、韩语和西班牙语的语言学专家。
-                    用户目前的水平是：中文母语、韩语熟练、西班牙语B1、日语初学者。
+                    用户的背景是：中文母语、韩语熟练、西班牙语B1、日语初学者。
                     请分析以下日语句子：'{user_input}'
                     
-                    要求：
-                    1. 给出中文翻译。
-                    2. 寻找该句子与韩语在语法上的相似之处（例如助词对应、语序）。
-                    3. 如果发音上有与西班牙语相似的部分，请指出。
-                    4. 解释重点词汇和语法点。
+                    请按以下格式回答：
+                    1. 【中文翻译】：简明扼要。
+                    2. 【韩语对比】：找出对应的韩语语法或词汇，解释助词和语序的相似性。
+                    3. 【西语辅助】：如果发音或某些外来语与西语相似，请指出。
+                    4. 【要点解析】：解释句子中的重点语法。
                     """
+                    # 确保没有手动指定版本号，让库自动处理
                     response = model.generate_content(prompt)
+                    
                     st.markdown("### 📝 AI 分析结果")
                     st.write(response.text)
                 except Exception as e:
+                    # 如果还是报错，尝试打印更详细的错误信息
                     st.error(f"AI 调用出错: {e}")
+                    st.info("提示：请检查 Google AI Studio 是否已启用 Gemini API，并确保 Key 填写正确。")
         else:
             st.warning("请输入内容后再点击分析。")
