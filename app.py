@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import json
+import google.generativeai as genai  # 1. 把 import 移到最上方
 
 # --- 页面基础配置 ---
 st.set_page_config(page_title="多语种日语学习助手", layout="wide")
@@ -8,16 +9,21 @@ st.set_page_config(page_title="多语种日语学习助手", layout="wide")
 st.title("🏮 个人专用日语学习 App")
 st.caption("基于中、韩、西三语背景开发")
 
+# --- AI 配置 (放在逻辑块外面) ---
+if "GEMINI_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    model = genai.GenerativeModel('gemini-1.5-flash')
+else:
+    st.sidebar.warning("⚠️ 请在 Streamlit Secrets 中配置 GEMINI_API_KEY")
+
 # --- 侧边栏：组合与级别设定 ---
 st.sidebar.header("🛠️ 学习设定")
 
-# 1. 选择学习组合 (对应你的文件名)
 combo_option = st.sidebar.selectbox(
     "选择学习组合",
     ["CH-JP", "KO-JP", "JP-SP", "CH-KO", "JP-CH", "KO-CH", "SP-JP"]
 )
 
-# 2. 选择学习分级
 level = st.sidebar.radio(
     "学习阶段",
     ["基础：发音与字母", "进阶：全信息交叉搜索", "挑战：AI 语法分析"]
@@ -56,20 +62,16 @@ elif level == "进阶：全信息交叉搜索":
         search_query = st.text_input("输入关键词（支持日文、中文、韩文或西文）：")
         
         if search_query:
-            # 在 word, senses, categories, etymology_texts 中进行模糊搜索
-            # 注意：某些列可能是 None，需要先处理
             mask = (
                 df['word'].str.contains(search_query, na=False, case=False) |
                 df['senses'].str.contains(search_query, na=False, case=False) |
                 df['categories'].str.contains(search_query, na=False, case=False)
             )
             
-            # 如果存在词源列，也加入搜索
             if 'etymology_texts' in df.columns:
                 mask |= df['etymology_texts'].str.contains(search_query, na=False, case=False)
             
             results = df[mask]
-            
             st.write(f"找到 {len(results)} 条相关结果：")
             
             for _, row in results.head(20).iterrows():
@@ -81,14 +83,6 @@ elif level == "进阶：全信息交叉搜索":
                         st.info(f"🧬 **词源（Etymology）：**\n{row['etymology_texts']}")
                     if 'categories' in row and row['categories']:
                         st.warning(f"🏷️ **分类标签：**\n{row['categories']}")
-import google.generativeai as genai
-
-# 从 Streamlit Secrets 中读取密钥
-if "GEMINI_API_KEY" in st.secrets:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-1.5-flash') # 使用最新的 flash 模型，速度快且免费额度高
-else:
-    st.warning("⚠️ 请在 Streamlit Secrets 中配置 GEMINI_API_KEY")
 
 # --- 模块 3：AI 语法练习 ---
 elif level == "挑战：AI 语法分析":
@@ -98,10 +92,11 @@ elif level == "挑战：AI 语法分析":
     user_input = st.text_area("输入你想分析的日语或对比句子：", placeholder="例如：勉強すればするほど、難しくなります。")
     
     if st.button("开始 AI 深度分析"):
-        if user_input:
+        if "GEMINI_API_KEY" not in st.secrets:
+            st.error("请先在 Secrets 中设置 API Key！")
+        elif user_input:
             with st.spinner("AI 老师正在思考中..."):
                 try:
-                    # 这里的 Prompt 专门为你设计，利用你的多语言背景
                     prompt = f"""
                     你是一位精通日语、中文、韩语和西班牙语的语言学专家。
                     用户目前的水平是：中文母语、韩语熟练、西班牙语B1、日语初学者。
