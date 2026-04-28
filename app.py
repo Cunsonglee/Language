@@ -1,22 +1,23 @@
 import streamlit as st
 import pandas as pd
 import json
-import google.generativeai as genai  # 1. 把 import 移到最上方
+import google.generativeai as genai
 
-# --- 页面基础配置 ---
+# --- 1. 页面基础配置 ---
 st.set_page_config(page_title="多语种日语学习助手", layout="wide")
 
 st.title("🏮 个人专用日语学习 App")
 st.caption("基于中、韩、西三语背景开发")
 
-# --- AI 配置 (放在逻辑块外面) ---
+# --- 2. AI 配置 (集中在最上方，不影响后面的 if-elif 逻辑) ---
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-pro')
+    # 使用 gemini-1.5-flash，这是目前最兼容、最快的模型
+    model = genai.GenerativeModel('gemini-1.5-flash')
 else:
     st.sidebar.warning("⚠️ 请在 Streamlit Secrets 中配置 GEMINI_API_KEY")
 
-# --- 侧边栏：组合与级别设定 ---
+# --- 3. 侧边栏：设定 ---
 st.sidebar.header("🛠️ 学习设定")
 
 combo_option = st.sidebar.selectbox(
@@ -29,7 +30,7 @@ level = st.sidebar.radio(
     ["基础：发音与字母", "进阶：全信息交叉搜索", "挑战：AI 语法分析"]
 )
 
-# --- 加载数据函数 ---
+# --- 4. 数据加载函数 ---
 @st.cache_data
 def load_data(combo):
     file_path = f"{combo}.parquet"
@@ -41,7 +42,8 @@ def load_data(combo):
 
 df = load_data(combo_option)
 
-# --- 模块 1：基础发音 ---
+# --- 5. 主逻辑块 (if-elif-else 结构保持完整) ---
+
 if level == "基础：发音与字母":
     st.header("🅰️ 五十音图 x 西班牙语辅助")
     st.info("💡 提示：日语的 a, i, u, e, o 与西班牙语发音几乎完全一致！")
@@ -54,7 +56,6 @@ if level == "基础：发音与字母":
         st.subheader("学习建议")
         st.write("你会韩语，日语的收音（P/T/K）和韩语的终声（Batchim）逻辑很像，可以互相参考。")
 
-# --- 模块 2：全信息交叉搜索 ---
 elif level == "进阶：全信息交叉搜索":
     st.header(f"🔍 交叉搜索核心 - {combo_option}")
     
@@ -84,16 +85,6 @@ elif level == "进阶：全信息交叉搜索":
                     if 'categories' in row and row['categories']:
                         st.warning(f"🏷️ **分类标签：**\n{row['categories']}")
 
-# --- AI 配置 ---
-if "GEMINI_API_KEY" in st.secrets:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    # 使用 'gemini-1.5-flash' 或 'gemini-1.5-pro'
-    # 加上 latest 可以确保调用到当前最稳定的版本
-    model = genai.GenerativeModel('gemini-1.5-flash') 
-else:
-    st.sidebar.warning("⚠️ 请在 Streamlit Secrets 中配置 GEMINI_API_KEY")
-
-# --- 模块 3：AI 语法练习 ---
 elif level == "挑战：AI 语法分析":
     st.header("🤖 Gemini AI 导师")
     st.write("输入日语句子，AI 会结合你的中、韩、西语背景进行深度分析。")
@@ -106,7 +97,7 @@ elif level == "挑战：AI 语法分析":
         elif user_input:
             with st.spinner("AI 老师正在思考中..."):
                 try:
-                    # 这里的 Prompt 专门为你设计，利用你的多语言背景
+                    # 提示词：强制要求对比韩语和西语
                     prompt = f"""
                     你是一位精通日语、中文、韩语和西班牙语的语言学专家。
                     用户的背景是：中文母语、韩语熟练、西班牙语B1、日语初学者。
@@ -114,18 +105,15 @@ elif level == "挑战：AI 语法分析":
                     
                     请按以下格式回答：
                     1. 【中文翻译】：简明扼要。
-                    2. 【韩语对比】：找出对应的韩语语法或词汇，解释助词和语序的相似性。
+                    2. 【韩语对比】：找出对应的韩语语法或词汇，解释助词和语序的相似性（韩语是日语学习者的捷径）。
                     3. 【西语辅助】：如果发音或某些外来语与西语相似，请指出。
-                    4. 【要点解析】：解释句子中的重点语法。
+                    4. 【要点解析】：解释句子中的重点词汇和语法。
                     """
-                    # 确保没有手动指定版本号，让库自动处理
                     response = model.generate_content(prompt)
-                    
                     st.markdown("### 📝 AI 分析结果")
                     st.write(response.text)
                 except Exception as e:
-                    # 如果还是报错，尝试打印更详细的错误信息
                     st.error(f"AI 调用出错: {e}")
-                    st.info("提示：请检查 Google AI Studio 是否已启用 Gemini API，并确保 Key 填写正确。")
+                    st.info("提示：如果遇到 404，请确认 API Key 在 Google AI Studio 是否有效。")
         else:
             st.warning("请输入内容后再点击分析。")
